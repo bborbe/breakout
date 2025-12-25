@@ -1,5 +1,7 @@
 # Breakout
 
+**Play online:** https://bborbe.github.io/breakout/
+
 A classic Breakout game built with vanilla JavaScript, HTML5 Canvas, and CSS. Break all the bricks with the ball while keeping it from falling below the paddle!
 
 ## Features
@@ -76,10 +78,6 @@ Works in all modern browsers supporting:
 - HTML5 Canvas
 - ES6 JavaScript
 - localStorage API
-
-## Play Online
-
-**Play now:** https://bborbe.github.io/breakout/
 
 ## Development
 
