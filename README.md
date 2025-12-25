@@ -79,7 +79,7 @@ Works in all modern browsers supporting:
 
 ## Play Online
 
-[GitHub Pages link will be added here]
+**Play now:** https://bborbe.github.io/breakout/
 
 ## Development
 
