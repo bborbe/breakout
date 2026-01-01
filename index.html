@@ -160,6 +160,99 @@
     #victory button:hover {
       background: #e74c3c;
     }
+
+    .name-input-section {
+      margin: 20px 0;
+    }
+
+    .name-input-section label {
+      display: block;
+      margin-bottom: 10px;
+      color: #f39c12;
+    }
+
+    .name-input-section input {
+      padding: 10px 15px;
+      font-size: 18px;
+      font-family: 'Arial', sans-serif;
+      background: #222;
+      color: #fff;
+      border: 2px solid #f39c12;
+      border-radius: 5px;
+      text-transform: uppercase;
+      width: 120px;
+      text-align: center;
+    }
+
+    .name-input-section input:focus {
+      outline: none;
+      border-color: #fff;
+    }
+
+    .leaderboard {
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .leaderboard h3 {
+      text-align: center;
+      color: #f39c12;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+
+    .leaderboard table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .leaderboard th,
+    .leaderboard td {
+      padding: 5px 10px;
+      font-size: 14px;
+    }
+
+    .leaderboard th {
+      color: #f39c12;
+      border-bottom: 1px solid #444;
+    }
+
+    .leaderboard td {
+      color: #fff;
+    }
+
+    .leaderboard .rank {
+      width: 30px;
+      text-align: center;
+    }
+
+    .leaderboard .name {
+      text-align: left;
+    }
+
+    .leaderboard .score {
+      text-align: right;
+    }
+
+    .leaderboard .highlight {
+      color: #f39c12;
+      font-weight: bold;
+    }
+
+    .submit-btn {
+      margin-top: 10px;
+      padding: 10px 30px;
+      font-size: 16px;
+      background: #f39c12;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .submit-btn:hover {
+      background: #e74c3c;
+    }
   </style>
 </head>
 <body>
@@ -167,7 +260,7 @@
     <canvas id="board" width="800" height="600"></canvas>
     <div id="ui">
       <div id="score">Score: 0</div>
-      <div id="high-score">High Score: 0</div>
+      <div id="high-score" style="cursor: pointer;" onclick="showLeaderboardOverlay()">High Score: 0</div>
       <div id="lives">Lives: 3</div>
       <div id="controls">
         ← → Move Paddle<br>
@@ -180,19 +273,124 @@
 
   <div id="pause-overlay">PAUSED</div>
 
+  <div id="leaderboard-overlay" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.95);color:white;padding:40px;border-radius:15px;text-align:center;display:none;min-width:300px;">
+    <h2 style="color:#f39c12;margin-bottom:20px;">LEADERBOARD</h2>
+    <div id="leaderboard-standalone" class="leaderboard"></div>
+    <button onclick="hideLeaderboardOverlay()" style="margin-top:20px;padding:10px 30px;font-size:16px;background:#f39c12;color:#fff;border:none;border-radius:5px;cursor:pointer;">CLOSE</button>
+  </div>
+
   <div id="game-over">
     <h2>Game Over</h2>
     <div id="final-score"></div>
+    <div id="name-input-gameover" class="name-input-section" style="display: none;">
+      <label>Enter Your Name:</label>
+      <input type="text" id="player-name-gameover" maxlength="10" placeholder="AAA">
+      <button class="submit-btn" onclick="submitScore('gameover')">Submit</button>
+    </div>
+    <div id="leaderboard-gameover" class="leaderboard"></div>
     <button onclick="restartGame()">Play Again</button>
   </div>
 
   <div id="victory">
     <h2>Victory!</h2>
     <div id="victory-score"></div>
+    <div id="name-input-victory" class="name-input-section" style="display: none;">
+      <label>Enter Your Name:</label>
+      <input type="text" id="player-name-victory" maxlength="10" placeholder="AAA">
+      <button class="submit-btn" onclick="submitScore('victory')">Submit</button>
+    </div>
+    <div id="leaderboard-victory" class="leaderboard"></div>
     <button onclick="restartGame()">Play Again</button>
   </div>
 
   <script>
+    // Leaderboard functions
+    const MAX_LEADERBOARD_ENTRIES = 10;
+    let pendingScore = 0;
+
+    function loadLeaderboard() {
+      const saved = localStorage.getItem('breakout-leaderboard');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          return [];
+        }
+      }
+      return [];
+    }
+
+    function saveLeaderboard(entries) {
+      localStorage.setItem('breakout-leaderboard', JSON.stringify(entries));
+    }
+
+    function loadLastName() {
+      return localStorage.getItem('breakout-last-name') || '';
+    }
+
+    function saveLastName(name) {
+      localStorage.setItem('breakout-last-name', name);
+    }
+
+    function isHighScore(score) {
+      if (score === 0) return false;
+      const entries = loadLeaderboard();
+      if (entries.length < MAX_LEADERBOARD_ENTRIES) return true;
+      return score > entries[entries.length - 1].score;
+    }
+
+    function addToLeaderboard(name, score) {
+      const entries = loadLeaderboard();
+      entries.push({ name: name.toUpperCase(), score: score });
+      entries.sort((a, b) => b.score - a.score);
+      const trimmed = entries.slice(0, MAX_LEADERBOARD_ENTRIES);
+      saveLeaderboard(trimmed);
+      return trimmed;
+    }
+
+    function renderLeaderboard(containerId, highlightScore = null) {
+      const container = document.getElementById(containerId);
+      const entries = loadLeaderboard();
+
+      if (entries.length === 0) {
+        container.innerHTML = '<h3>TOP SCORES</h3><p style="text-align:center;color:#888;">No scores yet</p>';
+        return;
+      }
+
+      let html = '<h3>TOP SCORES</h3><table><thead><tr><th class="rank">#</th><th class="name">NAME</th><th class="score">SCORE</th></tr></thead><tbody>';
+      entries.forEach((entry, i) => {
+        const isHighlight = highlightScore !== null && entry.score === highlightScore;
+        const cls = isHighlight ? ' class="highlight"' : '';
+        html += `<tr${cls}><td class="rank">${i + 1}</td><td class="name">${entry.name}</td><td class="score">${entry.score}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function submitScore(type) {
+      const inputId = type === 'gameover' ? 'player-name-gameover' : 'player-name-victory';
+      const nameInputSection = type === 'gameover' ? 'name-input-gameover' : 'name-input-victory';
+      const leaderboardId = type === 'gameover' ? 'leaderboard-gameover' : 'leaderboard-victory';
+
+      const nameInput = document.getElementById(inputId);
+      const name = nameInput.value.trim() || 'AAA';
+
+      saveLastName(name);
+      addToLeaderboard(name, pendingScore);
+
+      document.getElementById(nameInputSection).style.display = 'none';
+      renderLeaderboard(leaderboardId, pendingScore);
+    }
+
+    function showLeaderboardOverlay() {
+      renderLeaderboard('leaderboard-standalone');
+      document.getElementById('leaderboard-overlay').style.display = 'block';
+    }
+
+    function hideLeaderboardOverlay() {
+      document.getElementById('leaderboard-overlay').style.display = 'none';
+    }
+
     // Constants
     const CANVAS_WIDTH = 800;
     const CANVAS_HEIGHT = 600;
@@ -272,14 +470,18 @@
       }
 
       function loadHighScore() {
-        const saved = localStorage.getItem('breakout-high-score');
-        if (saved) {
-          state.highScore = parseInt(saved, 10) || 0;
+        // Get high score from leaderboard (top entry)
+        const entries = loadLeaderboard();
+        if (entries.length > 0) {
+          state.highScore = entries[0].score;
+        } else {
+          state.highScore = 0;
         }
       }
 
       function saveHighScore() {
-        localStorage.setItem('breakout-high-score', state.highScore.toString());
+        // High score is now managed by leaderboard, nothing to save here
+        // The actual saving happens when player enters name on game over
       }
 
       function resetBall() {
@@ -589,16 +791,46 @@
     }
 
     function showGameOver(score) {
+      pendingScore = score;
       const gameOverDiv = document.getElementById('game-over');
       const finalScoreDiv = document.getElementById('final-score');
       finalScoreDiv.textContent = `Final Score: ${score}`;
+
+      const nameInputSection = document.getElementById('name-input-gameover');
+      const nameInput = document.getElementById('player-name-gameover');
+
+      if (isHighScore(score)) {
+        nameInput.value = loadLastName();
+        nameInputSection.style.display = 'block';
+        renderLeaderboard('leaderboard-gameover');
+        nameInput.focus();
+      } else {
+        nameInputSection.style.display = 'none';
+        renderLeaderboard('leaderboard-gameover');
+      }
+
       gameOverDiv.style.display = 'block';
     }
 
     function showVictory(score) {
+      pendingScore = score;
       const victoryDiv = document.getElementById('victory');
       const victoryScoreDiv = document.getElementById('victory-score');
       victoryScoreDiv.textContent = `Final Score: ${score}`;
+
+      const nameInputSection = document.getElementById('name-input-victory');
+      const nameInput = document.getElementById('player-name-victory');
+
+      if (isHighScore(score)) {
+        nameInput.value = loadLastName();
+        nameInputSection.style.display = 'block';
+        renderLeaderboard('leaderboard-victory');
+        nameInput.focus();
+      } else {
+        nameInputSection.style.display = 'none';
+        renderLeaderboard('leaderboard-victory');
+      }
+
       victoryDiv.style.display = 'block';
     }
 
